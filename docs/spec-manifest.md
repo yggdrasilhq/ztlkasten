@@ -40,6 +40,38 @@ Everything else has a default. A collection's `label` defaults to its `id`, its
 `path` to a directory of the same name under the root, and its `title` to
 whichever source suits its node shape.
 
+## `kasten init` — a proposal, not a decision
+
+Writing a manifest by hand is a chore assembled from primitives: list the
+directories, work out which hold prose and which hold facts, guess where the
+titles live, get one wrong, notice weeks later. `kasten init` does it the same
+way every time and prints the result to stdout.
+
+**What it will not do:**
+
+- **overwrite an existing manifest.** A generator that replaced a hand-tuned
+  file would make manifests untrustworthy exactly where it matters most — on a
+  corpus nobody wants to re-check.
+- **invent a source it did not observe.** A date source is emitted only when
+  dated filenames or a date key were actually seen.
+- **silently resolve a mixed directory.** A directory holding both prose nodes
+  and record nodes gets a `⚠ MIXED` comment, because only one shape can be
+  declared and the other becomes invisible.
+- **drop a directory it skipped.** Candidates that held nothing are listed as
+  comments, so their absence is a recorded fact rather than an oversight.
+
+**What it cannot know, by construction, and therefore leaves for a human:**
+
+| | why |
+|---|---|
+| `name` | it uses the directory name; what a corpus is *called* is not on disk |
+| `publish` | a policy declaration, not an observable property |
+| `label` | directory names are rarely what you would call the thing out loud |
+
+⇒ Measured against a corpus whose manifest was written by hand, the proposal
+recovered every collection, every node shape, and every title, date and status
+source. The two it did not recover are precisely the two in that table.
+
 ## `[corpus]`
 
 | key | meaning |

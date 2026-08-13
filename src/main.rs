@@ -9,6 +9,7 @@
 //! needs a desktop does not run.
 
 mod corpus;
+mod init;
 mod launcher;
 mod manifest;
 mod osc;
@@ -25,6 +26,7 @@ const USAGE: &str = "\
 kasten — a corpus overview
 
 USAGE:
+    kasten init  [--corpus <dir>]
     kasten serve [--corpus <dir>]
     kasten index [--corpus <dir>]
     kasten check [--corpus <dir>]
@@ -75,6 +77,18 @@ fn run() -> Result<()> {
         print!("{USAGE}");
         return Ok(());
     };
+
+    // `init` runs before the manifest is located, because its whole job is the
+    // case where there is not one yet. It writes nothing: the proposal goes to
+    // stdout so a human reads it before it becomes the corpus's contract.
+    if command == "init" {
+        let root = match corpus_arg {
+            Some(dir) => dir,
+            None => std::env::current_dir()?,
+        };
+        print!("{}", init::propose(&root)?);
+        return Ok(());
+    }
 
     let manifest_path = locate(corpus_arg.as_deref())?;
     let corpus = Corpus::load(Manifest::load(&manifest_path)?)?;
