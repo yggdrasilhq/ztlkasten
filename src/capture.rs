@@ -72,13 +72,28 @@ pub fn write(manifest: &Manifest, today: &str, at: &str, text: &str) -> Result<C
     // in DECISIONS and keystrokes on the hot path; this adds neither.
     body.push_str(&format!("\n## {at}\n\n{text}\n"));
 
-    let mut existing = if created {
-        String::new()
-    } else {
-        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?
-    };
-    existing.push_str(&body);
-    std::fs::write(&path, existing).with_context(|| format!("writing {}", path.display()))?;
+    // ⛔ APPEND. Never read-modify-write.
+    //
+    // The obvious implementation reads the day's entry, adds to it, and writes
+    // the whole file back. That puts every thought already captured today
+    // inside the blast radius of one interrupted write: a crash, a full disk or
+    // a killed process mid-`write` leaves the file truncated and the morning's
+    // thinking gone. An append can at worst lose the tail it was adding — the
+    // thought whose loss the writer is present to notice — and never touches a
+    // byte that was already safe.
+    use std::io::Write as _;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .with_context(|| format!("opening {}", path.display()))?;
+    file.write_all(body.as_bytes())
+        .with_context(|| format!("writing {}", path.display()))?;
+    // Ask for it to reach the disk before we tell the writer it is filed. A
+    // journal that reports success and loses the entry to a power cut has told
+    // the one lie that makes a writer stop trusting it.
+    file.sync_all()
+        .with_context(|| format!("flushing {}", path.display()))?;
 
     Ok(Captured { path, created })
 }
@@ -176,6 +191,42 @@ mod tests {
         // And an unwritten target becomes a to-write list the writer produced
         // by writing, at a cost of zero extra keystrokes.
         assert_eq!(corpus.unresolved(), vec!["culvert"]);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The property the append buys, and the reason read-modify-write was
+    /// wrong: two thoughts captured at once must BOTH survive.
+    ///
+    /// Read-modify-write loses one silently — each writer reads the file, adds
+    /// its own line, and writes back what it read, so the slower one erases the
+    /// faster one's thought and reports success. Nothing errors and the writer
+    /// has no way to know. The same mechanism is what protects a day's earlier
+    /// thoughts from a write interrupted by a crash or a full disk, which is
+    /// the case that matters more and cannot be tested without fault injection.
+    #[test]
+    fn two_thoughts_captured_at_once_both_survive() {
+        let dir = scratch("concurrent");
+        let m = manifest(&dir);
+        write(&m, "2031-05-04", "09:00", "opening the day").unwrap();
+
+        let count = 16;
+        std::thread::scope(|scope| {
+            for i in 0..count {
+                let m = &m;
+                scope.spawn(move || {
+                    let _ = write(m, "2031-05-04", "09:30", &format!("thought number {i}"));
+                });
+            }
+        });
+
+        let body = std::fs::read_to_string(dir.join("journal/2031-05-04.md")).unwrap();
+        assert!(body.contains("opening the day"), "the first thought was erased");
+        for i in 0..count {
+            assert!(
+                body.contains(&format!("thought number {i}")),
+                "thought {i} was lost:\n{body}"
+            );
+        }
         std::fs::remove_dir_all(&dir).ok();
     }
 

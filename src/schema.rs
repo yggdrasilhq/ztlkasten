@@ -266,7 +266,11 @@ fn footer(corpus: &Corpus, route: &Route) -> Vec<Value> {
 }
 
 /// The rail pane: navigation that stays put while the viewport changes.
-pub fn navigation(corpus: &Corpus, route: &Route) -> Value {
+pub fn navigation(
+    corpus: &Corpus,
+    route: &Route,
+    capture_error: Option<&(String, String)>,
+) -> Value {
     let mut widgets = Vec::new();
 
     // Capture comes FIRST, above navigation, because it is the first hot path
@@ -278,9 +282,23 @@ pub fn navigation(corpus: &Corpus, route: &Route) -> Value {
     // to take someone's writing and then had nowhere to put it would be worse
     // than one that never offered.
     if corpus.manifest.capture.is_some() {
+        // On a failed capture the box is re-declared HOLDING the writer's own
+        // words, with the reason above it. An empty box after a failed write is
+        // indistinguishable from a successful one, and the difference is a
+        // thought they will not get back.
+        let (value, error) = match capture_error {
+            Some((text, message)) => (text.as_str(), Some(message.as_str())),
+            None => ("", None),
+        };
+        if let Some(message) = error {
+            widgets.push(json!({
+                "kind": "label", "muted": true,
+                "text": format!("⚠ not captured — {message}"),
+            }));
+        }
         widgets.push(json!({
             "kind": "text-input", "id": "capture", "action": "capture",
-            "placeholder": "Capture a thought…", "value": "",
+            "placeholder": "Capture a thought…", "value": value,
         }));
     }
 
@@ -450,10 +468,40 @@ mod tests {
         }
     }
 
+    /// The loss case, asserted: a failed write must give the writer their words
+    /// back. An empty box after a failure is indistinguishable from a success,
+    /// and the difference is a thought they cannot recover.
+    #[test]
+    fn a_failed_capture_puts_the_writers_words_back_in_the_box() {
+        let field = fixture("fieldbook");
+        let failed = (
+            "the thought that did not make it".to_string(),
+            "writing /nope: read-only file system".to_string(),
+        );
+        let nav = navigation(&field, &Route::Home, Some(&failed));
+        let rows = nav["widgets"].as_array().unwrap();
+
+        let box_widget = rows.iter().find(|w| w["id"] == "capture").expect("capture box");
+        assert_eq!(box_widget["value"], "the thought that did not make it");
+        assert!(
+            rows.iter().any(|w| w["kind"] == "label"
+                && w["text"].as_str().unwrap_or("").contains("not captured")
+                && w["text"].as_str().unwrap_or("").contains("read-only")),
+            "the reason must be on screen beside the words: {nav}"
+        );
+
+        // NEGATIVE CONTROL: with no failure the box is empty and carries no
+        // warning, or the assertions above would pass on every render.
+        let clean = navigation(&field, &Route::Home, None);
+        let rows = clean["widgets"].as_array().unwrap();
+        assert_eq!(rows.iter().find(|w| w["id"] == "capture").unwrap()["value"], "");
+        assert!(!clean.to_string().contains("not captured"));
+    }
+
     #[test]
     fn the_rail_marks_the_collection_being_read() {
         let field = fixture("fieldbook");
-        let nav = navigation(&field, &Route::Collection("indices".into()));
+        let nav = navigation(&field, &Route::Collection("indices".into()), None);
         let rows = nav["widgets"].as_array().unwrap();
         let selected: Vec<&Value> = rows.iter().filter(|w| w["selected"] == true).collect();
         assert_eq!(selected.len(), 1);

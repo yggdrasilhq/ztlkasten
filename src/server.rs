@@ -26,6 +26,14 @@ pub struct State {
     pub corpus: Corpus,
     pub route: Route,
     pub search: String,
+    /// A capture that failed, and the text the writer typed.
+    ///
+    /// ⛔ THE TEXT IS KEPT. Clearing the box on a failed write discards the
+    /// thought the writer just had, while the surface looks exactly as it does
+    /// on success — the one failure a journal must never have. Holding it means
+    /// the worst case is a visible error above the words, still on screen, still
+    /// selectable.
+    pub capture_error: Option<(String, String)>,
 }
 
 impl State {
@@ -127,7 +135,11 @@ fn handle(stream: TcpStream, state: &Mutex<State>) {
         }
         ("GET", "/pane/nav") => {
             let s = state.lock().unwrap();
-            respond(stream, 200, &schema::navigation(&s.corpus, &s.route));
+            respond(
+                stream,
+                200,
+                &schema::navigation(&s.corpus, &s.route, s.capture_error.as_ref()),
+            );
         }
         ("POST", "/action") => {
             let mut s = state.lock().unwrap();
@@ -173,13 +185,19 @@ pub fn apply(state: &mut State, body: &Value) {
             let now = chrono::Local::now();
             let today = now.format("%Y-%m-%d").to_string();
             let at = now.format("%H:%M").to_string();
-            // A failed capture must never be silent — the writer believes the
-            // thought is filed and it is not. There is no user-visible error
-            // channel on this surface yet, so it goes to stderr where the
-            // session that launched the app will hold it.
             match crate::capture::write(&state.corpus.manifest, &today, &at, &text) {
-                Ok(out) => eprintln!("kasten: captured to {}", out.path.display()),
-                Err(error) => eprintln!("kasten: CAPTURE FAILED — {error:#}"),
+                Ok(out) => {
+                    state.capture_error = None;
+                    eprintln!("kasten: captured to {}", out.path.display());
+                }
+                // The thought goes back into the box with the reason beside it.
+                // stderr alone was not enough: it lands in a terminal session
+                // the writer is not looking at, so from where they sit the
+                // words simply vanished and the surface said nothing.
+                Err(error) => {
+                    eprintln!("kasten: CAPTURE FAILED — {error:#}");
+                    state.capture_error = Some((text.clone(), format!("{error:#}")));
+                }
             }
         }
         state.reload();
@@ -229,6 +247,7 @@ mod tests {
             corpus,
             route: Route::Home,
             search: String::new(),
+            capture_error: None,
         }
     }
 

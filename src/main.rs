@@ -118,7 +118,7 @@ fn run() -> Result<()> {
             let route = Route::parse(&route);
             let value = match pane {
                 "doc" => schema::document(&corpus, &route, &search),
-                "nav" => schema::navigation(&corpus, &route),
+                "nav" => schema::navigation(&corpus, &route, None),
                 other => bail!("unknown pane {other:?} — expected doc or nav"),
             };
             println!("{}", serde_json::to_string_pretty(&value)?);
@@ -229,6 +229,7 @@ fn serve(corpus: Corpus, manifest_path: PathBuf) -> Result<()> {
         corpus,
         route: Route::Home,
         search: String::new(),
+        capture_error: None,
     })?;
     let control = server.url.clone();
     println!("kasten: {name} on {control}");
