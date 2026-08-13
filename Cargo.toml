@@ -1,0 +1,22 @@
+[package]
+name = "kasten"
+version = "0.1.0"
+edition = "2021"
+description = "A corpus overview for a kasten-shaped collection of notes and records"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/yggdrasilhq/ztlkasten"
+
+[[bin]]
+name = "kasten"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+ctrlc = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+[profile.release]
+strip = true

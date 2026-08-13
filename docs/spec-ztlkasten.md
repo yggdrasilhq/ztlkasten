@@ -48,6 +48,14 @@ it.
 | app shell, panes, widgets | `yggui` (libyggterm) | exists |
 | multi-client collaboration | **yggterm** | not built; see settled-calls |
 | vault rules, surfaces, views | **this repo** | ⛏ |
+| the corpus manifest | **this repo** | [`spec-manifest.md`](spec-manifest.md), implemented |
+| the overview surface | **this repo** | `kasten`, reading + retrieval only |
+
+**The overview is Tier A of the platform's app-architecture contract**: the host paints the
+content with widgets it already has, and this repo ships no user-interface code. The question
+that decides a tier is *who must paint the pixels, and why* — for collections, rows, prose,
+counts and a search box the answer is the host, and reaching for a foreign engine to draw one of
+them would serve this app and charge every app on the platform forever.
 
 **The rule that generates this table: if a capability could serve another app, it belongs
 upstream.** Improve the organ once and every consumer improves — the reason `emd-renderer` is

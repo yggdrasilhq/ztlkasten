@@ -1,0 +1,38 @@
+# Fieldbook — a NOTE corpus, and the journalling shape.
+#
+# Everything in this fixture is invented. It exists so the engine can be proven
+# without any real corpus in reach, and so the second fixture (../atlas) can be
+# rendered by the same binary from a manifest with no vocabulary in common.
+
+[corpus]
+name = "Fieldbook"
+
+[overview]
+recent = 5
+
+[[collection]]
+id = "journal"
+label = "Journal"
+path = "journal"
+node = "note"
+title = "heading"
+date = "filename"
+order = "date-desc"
+
+[[collection]]
+id = "characters"
+label = "Characters"
+path = "characters"
+node = "note"
+title = "heading"
+order = "title"
+
+# A tag is a note: an index is an ordinary file in an ordinary folder, and the
+# only thing that makes it an index is that other notes link to it.
+[[collection]]
+id = "indices"
+label = "Indices"
+path = "indices"
+node = "note"
+title = "heading"
+order = "title"

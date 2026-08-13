@@ -1,0 +1,47 @@
+# Atlas — a RECORD corpus, and the shape a structured private corpus has.
+#
+# Invented end to end. Its purpose is to share no vocabulary at all with
+# ../fieldbook: different collections, different node shape, different title and
+# date sources. If one binary renders both from these two files alone, the
+# manifest is carrying the vocabulary and the engine has learned nothing about
+# either corpus.
+#
+# A record node is a facts file plus optional prose of the same stem, or a
+# directory holding `index.toml`. Both appear in real corpora and both are here.
+
+[corpus]
+name = "Atlas"
+
+[overview]
+recent = 4
+
+[[collection]]
+id = "venues"
+label = "Venues"
+path = "venues"
+node = "record"
+title = "facts:name"
+order = "title"
+
+[[collection]]
+id = "instruments"
+label = "Instruments"
+path = "instruments"
+node = "record"
+title = "facts:name"
+status = "facts:status"
+order = "title"
+
+# `publish = false` is the declared, enforceable never-publish property the spec
+# requires. A collection carrying other people's material must not become
+# publishable because of where its directory happens to sit.
+[[collection]]
+id = "expeditions"
+label = "Expeditions"
+path = "expeditions"
+node = "record"
+title = "facts:name"
+date = "facts:date"
+status = "facts:status"
+order = "date-desc"
+publish = false

@@ -1,0 +1,6 @@
+# Build output. Also load-bearing for scripts/check-privacy.sh, which scans
+# untracked files via `--exclude-standard`: without this line the first `cargo
+# build` buries every real finding under a few hundred lines of dependency
+# paths, and a guard that cries wolf on every run is a guard that gets switched
+# off — which is the one failure its own comments warn about.
+/target

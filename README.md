@@ -36,9 +36,31 @@ implementation detail:
 
 If a capability could serve another app, it belongs upstream. That rule is the point.
 
+## `kasten` — the overview
+
+The first program in this repo. It reads a corpus and hands the host a description of what to
+draw; it contains no user-interface code of its own, because collections, rows, prose and a
+search box are all vocabulary the platform already has.
+
+```sh
+cargo build --release
+./target/release/kasten index --corpus fixtures/fieldbook
+./target/release/kasten pane doc --corpus fixtures/atlas --route node:venues/harbour-light
+./target/release/kasten serve            # inside a yggterm terminal, opens the surface
+```
+
+**One binary, many corpora.** Everything that differs between one corpus and another lives in a
+[`kasten.toml`](docs/spec-manifest.md) at its root — the collections, what a node is made of,
+where a title and a date are read from. The program never learns any corpus's vocabulary, which
+is what lets it be public while the corpora it reads stay private.
+
+The two fixtures under [`fixtures/`](fixtures/) are invented end to end and share no vocabulary
+at all: one is a note corpus, the other a record corpus. They exist so that "the manifest carries
+the vocabulary" is a claim the test suite can falsify rather than a claim the README makes.
+
 ## Status
 
-Early. The specification is being written before the code, and the specification is being
+Early. The specification is being written before the code, and the vault half of it is being
 *extracted from a working vault* rather than designed in the abstract — the rules have been in
 daily use for months in Obsidian, which ztlkasten is intended to replace.
 
