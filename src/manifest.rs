@@ -85,7 +85,12 @@ pub struct Collection {
     /// vocabulary, so it is declared here rather than guessed: a hard-coded
     /// list of likely filenames would work on the corpus it was written
     /// against and silently see nothing on the next one.
-    pub entry: String,
+    ///
+    /// ⭐ DECLARING IT ALSO SAYS THE NODES ARE DIRECTORIES. A flat facts file
+    /// has no directory, so it cannot have an entry — and a collection rooted
+    /// at the corpus itself would otherwise swallow the corpus's own index
+    /// files as if they were nodes. Absent ⇒ both forms are accepted.
+    pub entry: Option<String>,
     pub title: Source,
     pub date: Option<Source>,
     pub status: Option<Source>,
@@ -222,10 +227,14 @@ impl Manifest {
                 bail!("{id}: order is by date but no date source is declared");
             }
 
-            let entry = c.entry.unwrap_or_else(|| "index.toml".to_string());
-            if entry.contains('/') || entry.contains("..") {
-                bail!("{id}: entry {entry:?} must be a bare file name inside the node's directory");
+            if let Some(entry) = &c.entry {
+                if entry.contains('/') || entry.contains("..") {
+                    bail!(
+                        "{id}: entry {entry:?} must be a bare file name inside the node's directory"
+                    );
+                }
             }
+            let entry = c.entry;
 
             collections.push(Collection {
                 entry,

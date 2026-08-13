@@ -14,6 +14,9 @@ use anyhow::{Context, Result};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+/// What a directory node's facts file is called when a corpus does not say.
+const DEFAULT_ENTRY: &str = "index.toml";
+
 #[derive(Debug, Clone)]
 pub struct Node {
     pub collection: String,
@@ -172,7 +175,7 @@ fn read_node(collection: &Collection, entry: &Path) -> Result<Option<Node>> {
             (slug, None, Some(entry.to_path_buf()))
         }
         NodeShape::Record if entry.is_dir() => {
-            let facts = entry.join(&collection.entry);
+            let facts = entry.join(collection.entry.as_deref().unwrap_or(DEFAULT_ENTRY));
             if !facts.is_file() {
                 return Ok(None);
             }
@@ -185,6 +188,14 @@ fn read_node(collection: &Collection, entry: &Path) -> Result<Option<Node>> {
             (slug, Some(facts), body.is_file().then_some(body))
         }
         NodeShape::Record => {
+            // A declared `entry` says the nodes of this collection ARE
+            // directories, so a loose facts file beside them is not one of
+            // them. Without this, a collection rooted at the corpus itself
+            // reports the corpus's own index files as nodes — and they parse,
+            // so the count is simply wrong and nothing complains.
+            if collection.entry.is_some() {
+                return Ok(None);
+            }
             if entry.extension().and_then(|e| e.to_str()) != Some("toml") {
                 return Ok(None);
             }
@@ -465,6 +476,41 @@ mod tests {
         assert_eq!(gauge.status.as_deref(), Some("durable"));
         assert!(gauge.body.is_some());
         assert!(gauge.facts.iter().any(|(k, v)| k == "serial" && v == "TG-0004"));
+    }
+
+    /// A collection rooted at the corpus itself is the shape a corpus takes
+    /// when its top level IS its nodes. Declaring the entry file is what stops
+    /// the corpus's own index files from being counted as nodes — and they
+    /// parse perfectly, so without this the count is simply wrong and nothing
+    /// anywhere complains.
+    #[test]
+    fn a_declared_entry_means_directories_only_so_root_index_files_are_not_nodes() {
+        let root = std::env::temp_dir().join(format!("kasten-root-nodes-{}", std::process::id()));
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::create_dir_all(root.join("first-case")).unwrap();
+        std::fs::create_dir_all(root.join("second-case")).unwrap();
+        std::fs::write(root.join("first-case/case.toml"), "title = \"First\"\n").unwrap();
+        std::fs::write(root.join("second-case/case.toml"), "title = \"Second\"\n").unwrap();
+        // The corpus's own bookkeeping, sitting right beside the nodes.
+        std::fs::write(root.join("index.toml"), "kind = \"index\"\n").unwrap();
+        std::fs::write(root.join("patterns.toml"), "kind = \"patterns\"\n").unwrap();
+
+        let text = "[corpus]\nname = \"Root\"\n\n[[collection]]\nid = \"cases\"\npath = \".\"\n\
+                    node = \"record\"\nentry = \"case.toml\"\ntitle = \"facts:title\"\n";
+        let corpus = Corpus::load(Manifest::parse(text, &root).unwrap()).unwrap();
+        assert_eq!(corpus.count("cases"), 2, "{:?}", corpus.nodes.iter().map(|n| n.slug.clone()).collect::<Vec<_>>());
+
+        // NEGATIVE CONTROL, and it is the sharper half: drop the entry
+        // declaration and the collection reads exactly the WRONG two nodes —
+        // the corpus's own index files — while both real cases vanish, because
+        // their directories do not hold the default `index.toml`. Every count
+        // is plausible, nothing errors, and the listing is entirely wrong.
+        let loose = "[corpus]\nname = \"Root\"\n\n[[collection]]\nid = \"cases\"\npath = \".\"\n\
+                     node = \"record\"\n";
+        let corpus = Corpus::load(Manifest::parse(loose, &root).unwrap()).unwrap();
+        let slugs: Vec<&str> = corpus.nodes.iter().map(|n| n.slug.as_str()).collect();
+        assert_eq!(slugs, vec!["index", "patterns"], "the failure mode changed");
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]
