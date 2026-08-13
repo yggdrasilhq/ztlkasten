@@ -267,13 +267,28 @@ fn footer(corpus: &Corpus, route: &Route) -> Vec<Value> {
 
 /// The rail pane: navigation that stays put while the viewport changes.
 pub fn navigation(corpus: &Corpus, route: &Route) -> Value {
-    let mut widgets = vec![
-        json!({
-            "kind": "button", "id": "overview", "label": "Overview",
-            "action": "open:home", "primary": matches!(route, Route::Home),
-        }),
-        json!({ "kind": "section", "text": "Collections" }),
-    ];
+    let mut widgets = Vec::new();
+
+    // Capture comes FIRST, above navigation, because it is the first hot path
+    // and the one the design value ranks. A thought arriving while the reader
+    // is three clicks deep in a collection must not require them to go
+    // anywhere — the box is in the same place on every route.
+    //
+    // Absent from a corpus that declares no capture target: an app that offered
+    // to take someone's writing and then had nowhere to put it would be worse
+    // than one that never offered.
+    if corpus.manifest.capture.is_some() {
+        widgets.push(json!({
+            "kind": "text-input", "id": "capture", "action": "capture",
+            "placeholder": "Capture a thought…", "value": "",
+        }));
+    }
+
+    widgets.push(json!({
+        "kind": "button", "id": "overview", "label": "Overview",
+        "action": "open:home", "primary": matches!(route, Route::Home),
+    }));
+    widgets.push(json!({ "kind": "section", "text": "Collections" }));
 
     for c in &corpus.manifest.collections {
         let selected = matches!(route, Route::Collection(id) if id == &c.id);

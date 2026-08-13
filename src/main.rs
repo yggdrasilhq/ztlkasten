@@ -8,6 +8,7 @@
 //! can only be inspected by looking at a GUI cannot be tested, and a test that
 //! needs a desktop does not run.
 
+mod capture;
 mod corpus;
 mod init;
 mod launcher;
@@ -26,6 +27,7 @@ const USAGE: &str = "\
 kasten — a corpus overview
 
 USAGE:
+    kasten capture <text…> [--corpus <dir>]
     kasten init  [--corpus <dir>]
     kasten serve [--corpus <dir>]
     kasten index [--corpus <dir>]
@@ -94,6 +96,20 @@ fn run() -> Result<()> {
     let corpus = Corpus::load(Manifest::load(&manifest_path)?)?;
 
     match command.as_str() {
+        "capture" => {
+            // Everything after the verb is the thought. No quoting rules to
+            // remember and no flag to look up — the cheapest thing a shell can
+            // offer. Nothing on the line ⇒ read stdin, so a thought can be
+            // piped from wherever it was already written.
+            let mut text = positional[1..].join(" ");
+            if text.trim().is_empty() {
+                use std::io::Read as _;
+                let mut piped = String::new();
+                std::io::stdin().read_to_string(&mut piped).ok();
+                text = piped;
+            }
+            capture_now(&corpus.manifest, &text)
+        }
         "serve" => serve(corpus, manifest_path),
         "index" => print_index(&corpus),
         "check" => print_check(&corpus, &manifest_path),
@@ -110,6 +126,26 @@ fn run() -> Result<()> {
         }
         other => bail!("unknown command {other:?}\n\n{USAGE}"),
     }
+}
+
+/// The clock is read HERE and passed in, so every function below it is a pure
+/// function of a date string and can be tested without one.
+///
+/// ⚠ LOCAL time, deliberately. A date an hour off in the wrong direction files
+/// a thought under yesterday, which is a retrieval failure the writer would
+/// have to notice themselves — and the whole point is that they never have to
+/// think about where it went.
+fn capture_now(manifest: &Manifest, text: &str) -> Result<()> {
+    let now = chrono::Local::now();
+    let today = now.format("%Y-%m-%d").to_string();
+    let at = now.format("%H:%M").to_string();
+    let out = capture::write(manifest, &today, &at, text)?;
+    println!(
+        "{} {}",
+        if out.created { "started" } else { "added to" },
+        out.path.display()
+    );
+    Ok(())
 }
 
 fn next(args: &[String], i: &mut usize, flag: &str) -> Result<String> {

@@ -7,6 +7,13 @@
 [corpus]
 name = "Fieldbook"
 
+# Where a captured thought lands. The ONLY thing capture needs declaring: the
+# file name, the heading and the ordering all come from what the journal
+# collection below already says about itself, rather than being restated here
+# where the two could drift apart.
+[capture]
+collection = "journal"
+
 [overview]
 recent = 5
 

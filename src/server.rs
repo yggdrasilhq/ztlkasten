@@ -160,6 +160,32 @@ pub fn apply(state: &mut State, body: &Value) {
         return;
     }
 
+    if action == "capture" {
+        let text = values["capture"]
+            .as_str()
+            .or_else(|| values["value"].as_str())
+            .unwrap_or_default()
+            .to_string();
+        // An empty box is a stray Enter, not a thought. Refusing quietly is
+        // right here: a warning for pressing Enter on an empty field would be
+        // the app scolding the writer for nothing.
+        if !text.trim().is_empty() {
+            let now = chrono::Local::now();
+            let today = now.format("%Y-%m-%d").to_string();
+            let at = now.format("%H:%M").to_string();
+            // A failed capture must never be silent — the writer believes the
+            // thought is filed and it is not. There is no user-visible error
+            // channel on this surface yet, so it goes to stderr where the
+            // session that launched the app will hold it.
+            match crate::capture::write(&state.corpus.manifest, &today, &at, &text) {
+                Ok(out) => eprintln!("kasten: captured to {}", out.path.display()),
+                Err(error) => eprintln!("kasten: CAPTURE FAILED — {error:#}"),
+            }
+        }
+        state.reload();
+        return;
+    }
+
     if action == "search" {
         state.search = values["search"]
             .as_str()

@@ -79,6 +79,54 @@ source. The two it did not recover are precisely the two in that table.
 | `name` | Display name. Appears in the chrome and the footer. Required. |
 | `root` | Where the collections live, relative to the manifest. Defaults to the manifest's own directory. |
 
+## `[capture]` — the first hot path
+
+```toml
+[capture]
+collection = "journal"
+```
+
+**One key, and it is the only decision the writer ever makes about capture** —
+made once, in this file, rather than every time a thought arrives.
+
+⛔ **Everything else is DERIVED, not restated.** The file name, the heading and
+the ordering all come from what the target collection already declares about
+itself. A corpus that said `date = "filename"` has already said how its entries
+are named, and a second place to say it is a second place to disagree.
+
+**What a capture costs the writer:** one command, no prompts, no title, no
+folder, no tag.
+
+```sh
+kasten capture the four-degree rule held again at the [[culvert]]
+```
+
+- Lands in `<collection>/<today>.md`, creating it on the day's first thought and
+  joining it thereafter — **a day is one entry, not one per thought**.
+- A new entry opens with `# <date>`, which is what a `note` collection reads its
+  title from. **The entry titles itself.**
+- Every thought gets a `## HH:MM` marker. It costs no keystrokes and no
+  decisions — the writer never types it — and it is the only way to recover the
+  order of a day's thinking months later. The flow budget prices rules in
+  decisions and keystrokes on the hot path; this adds neither.
+- A `[[link]]` typed mid-sentence is indexed with **no second gesture**, and an
+  unwritten target becomes a *Wanted* item — a to-write list the writer produced
+  by writing.
+- The collection's directory is created if absent. Failing because a folder did
+  not exist yet is exactly the bureaucratic resistance this program is judged on.
+
+**Refused at manifest LOAD**, so a corpus can never be configured to swallow
+thoughts into somewhere that will not show them:
+
+- a `[capture]` naming a collection the corpus does not declare;
+- a collection of **records** — a captured thought is prose, and filing it as
+  facts puts it where nothing reads it;
+- a collection whose date does **not** come from the filename — capture writes a
+  dated file, so the collection has to be able to read a date back out of one.
+
+**Absent `[capture]` ⇒ the corpus is a reader.** The app offers no capture box at
+all rather than guessing a destination for someone's writing.
+
 ## `[overview]`
 
 | key | meaning |

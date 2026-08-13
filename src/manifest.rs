@@ -105,6 +105,10 @@ pub struct Manifest {
     pub name: String,
     pub root: PathBuf,
     pub recent: usize,
+    /// The collection a captured thought lands in. Absent ⇒ this corpus is a
+    /// reader; the app offers no capture affordance rather than guessing a
+    /// destination for someone's writing.
+    pub capture: Option<String>,
     pub collections: Vec<Collection>,
 }
 
@@ -119,6 +123,7 @@ struct RawFile {
     corpus: RawCorpus,
     #[serde(default)]
     overview: RawOverview,
+    capture: Option<RawCapture>,
     #[serde(default)]
     collection: Vec<RawCollection>,
 }
@@ -132,6 +137,11 @@ struct RawCorpus {
 #[derive(Deserialize, Default)]
 struct RawOverview {
     recent: Option<usize>,
+}
+
+#[derive(Deserialize)]
+struct RawCapture {
+    collection: String,
 }
 
 #[derive(Deserialize)]
@@ -250,12 +260,19 @@ impl Manifest {
             });
         }
 
-        Ok(Manifest {
+        let manifest = Manifest {
             name: raw.corpus.name,
             root,
             recent: raw.overview.recent.unwrap_or(DEFAULT_RECENT),
+            capture: raw.capture.map(|c| c.collection),
             collections,
-        })
+        };
+        // Checked HERE rather than at capture time: a corpus configured to
+        // journal into a collection that can never show the result would
+        // swallow thoughts silently, and the writer would find out later or
+        // not at all.
+        crate::capture::validate(&manifest)?;
+        Ok(manifest)
     }
 
     pub fn collection(&self, id: &str) -> Option<&Collection> {

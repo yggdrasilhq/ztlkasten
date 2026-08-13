@@ -89,8 +89,13 @@ To be written:
 - **Identity and disambiguation** — ⚠ if characters are notes, two real people with the same
   name need two nodes. Naming, aliasing and merge behaviour are unsolved and this is the first
   concrete rule gap found in practice.
-- **The journal entry** — how an entry enters, where it lands, what it links to automatically,
-  and what the capture path costs in keystrokes.
+- **The journal entry** — ✅ the ENTRY half is now built and specified; see
+  [`spec-manifest.md`](spec-manifest.md) §capture. A thought enters with one command and no
+  decisions: it lands in today's dated entry in the declared collection, creating it on the
+  first thought of the day and joining it thereafter, under an automatic time marker. The
+  entry titles itself from its date, so the writer never names one. ⛏ Still unwritten: what an
+  entry should link to *automatically*, which is a rule about the system rather than a
+  mechanism — today a link costs the writer the `[[…]]` they type and nothing else.
 - **Retrieval** — the second hot path. How a thing is found again months later, and what the
   index files do for it.
 - **Artifact references** — see §5.
