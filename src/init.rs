@@ -16,7 +16,7 @@
 //! questioned, which is worse than an absent one the reader can see is absent.
 
 use anyhow::{bail, Result};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 /// Directories that are never a collection. Build output, version control and
@@ -34,9 +34,22 @@ struct Survey {
     dated_names: usize,
     heading_titles: usize,
     fact_keys: BTreeSet<String>,
+    /// For directory nodes: what the facts file inside them is called, and how
+    /// often. Corpora name it after the node kind rather than using one
+    /// universal name, so it is observed rather than assumed.
+    entry_names: BTreeMap<String, usize>,
 }
 
 impl Survey {
+    /// The name most of this collection's directory nodes agree on. Ties are
+    /// broken by name so two runs on one corpus cannot disagree.
+    fn entry_name(&self) -> Option<String> {
+        self.entry_names
+            .iter()
+            .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))
+            .map(|(name, _)| name.clone())
+    }
+
     fn total(&self) -> usize {
         self.notes + self.records
     }
@@ -116,6 +129,11 @@ pub fn propose(root: &Path) -> Result<String> {
             "node = \"{}\"\n",
             if record { "record" } else { "note" }
         ));
+        // Only when it differs from the default, so a manifest carries a line
+        // per thing that is actually unusual about its corpus.
+        if let Some(entry) = s.entry_name().filter(|e| e != "index.toml") {
+            out.push_str(&format!("entry = {entry:?}\n"));
+        }
 
         let title = if record {
             s.fact_key(&["name", "title", "label"])
@@ -183,6 +201,7 @@ fn survey(dir: &Path) -> Result<Survey> {
         dated_names: 0,
         heading_titles: 0,
         fact_keys: BTreeSet::new(),
+        entry_names: BTreeMap::new(),
     };
 
     let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)?
@@ -203,10 +222,23 @@ fn survey(dir: &Path) -> Result<Survey> {
         let ext = entry.extension().and_then(|e| e.to_str()).unwrap_or("");
 
         if entry.is_dir() {
-            let index = entry.join("index.toml");
-            if index.is_file() {
+            // A directory node declares itself by holding exactly ONE top-level
+            // facts file. Two would make "which one is the node" a guess, and a
+            // guess here is invisible: the wrong file parses fine and the node
+            // shows the wrong title forever.
+            let mut tomls: Vec<String> = std::fs::read_dir(&entry)
+                .into_iter()
+                .flatten()
+                .filter_map(|e| e.ok())
+                .map(|e| e.path())
+                .filter(|p| p.is_file() && p.extension().and_then(|x| x.to_str()) == Some("toml"))
+                .filter_map(|p| p.file_name().and_then(|n| n.to_str()).map(str::to_string))
+                .collect();
+            tomls.sort();
+            if let [only] = tomls.as_slice() {
                 s.records += 1;
-                collect_keys(&index, &mut s);
+                *s.entry_names.entry(only.clone()).or_default() += 1;
+                collect_keys(&entry.join(only), &mut s);
                 if dated(&stem) {
                     s.dated_names += 1;
                 }
@@ -352,6 +384,55 @@ mod tests {
 
         let manifest = crate::manifest::Manifest::parse(&proposed, &dir).unwrap();
         assert_eq!(crate::corpus::Corpus::load(manifest).unwrap().count("items"), 2);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The gap that real corpora exposed: a directory node names its facts file
+    /// after the node KIND, not `index.toml`. Detected, declared, and then it
+    /// has to actually find the nodes — a proposal that names the file and
+    /// still reads zero nodes would look right and be useless.
+    #[test]
+    fn a_directory_node_whose_facts_file_is_named_after_its_kind_is_found() {
+        let dir = tempdir("propose-entry");
+        write(&dir, "matters/first-thing/matter.toml", "name = \"First\"\nstatus = \"durable\"\n");
+        write(&dir, "matters/first-thing/matter.md", "the body\n");
+        write(&dir, "matters/second-thing/matter.toml", "name = \"Second\"\n");
+
+        let proposed = propose(&dir).unwrap();
+        assert!(proposed.contains("entry = \"matter.toml\""), "{proposed}");
+
+        let manifest = crate::manifest::Manifest::parse(&proposed, &dir).unwrap();
+        let corpus = crate::corpus::Corpus::load(manifest).unwrap();
+        assert_eq!(corpus.count("matters"), 2);
+        let first = corpus.node("matters/first-thing").unwrap();
+        assert_eq!(first.title, "First");
+        // The prose beside the facts file is the node's body, and it is found
+        // by the facts file's stem rather than by a fixed `index.md`.
+        assert!(first.body.is_some(), "the sibling prose was not picked up");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn the_default_entry_name_is_not_written_out() {
+        // A manifest should carry a line per thing that is unusual about its
+        // corpus, not a line per field that exists.
+        let dir = tempdir("propose-default-entry");
+        write(&dir, "items/one/index.toml", "name = \"One\"\n");
+        let proposed = propose(&dir).unwrap();
+        assert!(!proposed.contains("entry ="), "{proposed}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_directory_holding_two_facts_files_is_not_treated_as_a_node() {
+        // Which one would be the node is a guess, and a wrong guess parses fine
+        // and shows the wrong title forever.
+        let dir = tempdir("propose-ambiguous");
+        write(&dir, "things/one/matter.toml", "name = \"One\"\n");
+        write(&dir, "things/one/other.toml", "name = \"Other\"\n");
+        write(&dir, "things/two/matter.toml", "name = \"Two\"\n");
+        let proposed = propose(&dir).unwrap();
+        assert!(proposed.contains("# 1 node seen"), "{proposed}");
         std::fs::remove_dir_all(&dir).ok();
     }
 

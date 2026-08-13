@@ -95,6 +95,7 @@ One per collection, in the order they should appear.
 | `label` | What the reader sees. | the `id` |
 | `path` | Directory, relative to the root. | the `id` |
 | `node` | `note` or `record` — see below. | required |
+| `entry` | For a directory node, the file inside it holding the facts. | `index.toml` |
 | `title` | Where a node's title is read from. | `heading` for a note, `slug` for a record |
 | `date` | Where a node's date is read from. | none |
 | `status` | Where a node's status is read from. | none |
@@ -107,10 +108,25 @@ One per collection, in the order they should appear.
   journalling shape: a note is a file, and so is every grouping that organises
   notes, which is the rule the whole system rests on.
 - **`record`** — structured facts plus optional prose. Either a `<slug>.toml`
-  with an optional `<slug>.md` beside it, or a directory `<slug>/` holding
-  `index.toml` and an optional `index.md`. **Both forms are supported because
-  both occur**: a corpus grows directory nodes the moment a node needs to carry
-  attachments, and it should not have to migrate the ones that do not.
+  with an optional `<slug>.md` beside it, or a directory `<slug>/` holding a
+  facts file and optional prose of the same stem. **Both forms are supported
+  because both occur**: a corpus grows directory nodes the moment a node needs
+  to carry attachments, and it should not have to migrate the ones that do not.
+
+⚠ **A directory node's facts file is named by the corpus, not by this spec.**
+Real corpora call it after the node kind — a matter's directory holds
+`matter.toml`, a year's holds `year.toml` — rather than adopting one universal
+name. So `entry` declares it. A hard-coded list of likely filenames was the
+obvious alternative and is the wrong one: it works on the corpus it was written
+against and **silently reads zero nodes** on the next, which looks identical to
+an empty collection. This was found by running `init` against a real corpus and
+watching two populated collections be reported as holding nothing.
+
+`init` detects it by observation: a directory that holds exactly one top-level
+`.toml` names it, and the name most of a collection's directories agree on is
+proposed. A directory holding two is not treated as a node at all — which one
+is the node would be a guess, and a wrong guess parses fine and shows the wrong
+title forever.
 
 ### Sources
 

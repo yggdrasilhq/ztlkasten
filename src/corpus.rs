@@ -172,15 +172,17 @@ fn read_node(collection: &Collection, entry: &Path) -> Result<Option<Node>> {
             (slug, None, Some(entry.to_path_buf()))
         }
         NodeShape::Record if entry.is_dir() => {
-            let index = entry.join("index.toml");
-            if !index.is_file() {
+            let facts = entry.join(&collection.entry);
+            if !facts.is_file() {
                 return Ok(None);
             }
             let Some(slug) = stem(entry) else {
                 return Ok(None);
             };
-            let body = entry.join("index.md");
-            (slug, Some(index), body.is_file().then_some(body))
+            // The prose file sits beside the facts file and shares its stem —
+            // `matter.toml` is accompanied by `matter.md`, not by `index.md`.
+            let body = facts.with_extension("md");
+            (slug, Some(facts), body.is_file().then_some(body))
         }
         NodeShape::Record => {
             if entry.extension().and_then(|e| e.to_str()) != Some("toml") {

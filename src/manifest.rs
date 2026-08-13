@@ -78,6 +78,14 @@ pub struct Collection {
     pub label: String,
     pub path: PathBuf,
     pub shape: NodeShape,
+    /// For a DIRECTORY node, the file inside it that holds the facts.
+    ///
+    /// Real corpora name this after the node kind — `matter.toml` inside a
+    /// matter's directory — rather than using one universal name. That is a
+    /// vocabulary, so it is declared here rather than guessed: a hard-coded
+    /// list of likely filenames would work on the corpus it was written
+    /// against and silently see nothing on the next one.
+    pub entry: String,
     pub title: Source,
     pub date: Option<Source>,
     pub status: Option<Source>,
@@ -127,6 +135,7 @@ struct RawCollection {
     label: Option<String>,
     path: Option<String>,
     node: String,
+    entry: Option<String>,
     title: Option<String>,
     date: Option<String>,
     status: Option<String>,
@@ -213,7 +222,13 @@ impl Manifest {
                 bail!("{id}: order is by date but no date source is declared");
             }
 
+            let entry = c.entry.unwrap_or_else(|| "index.toml".to_string());
+            if entry.contains('/') || entry.contains("..") {
+                bail!("{id}: entry {entry:?} must be a bare file name inside the node's directory");
+            }
+
             collections.push(Collection {
+                entry,
                 label: c.label.unwrap_or_else(|| id.clone()),
                 path: root.join(c.path.unwrap_or_else(|| id.clone())),
                 id,
