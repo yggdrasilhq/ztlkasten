@@ -80,10 +80,63 @@ read it and write down what is true.
 No real note titles, no real people, no paths from the owner's machines, no host names. A public
 repo must carry the shape of the system and none of its contents.
 
-To be written:
+### ✅ Node kinds and the folder vocabulary — extracted 2026-08-13
 
-- **Node kinds and the folder vocabulary** — what each top-level folder means, and what makes
-  something belong in one rather than another.
+Measured against a vault in daily use, by counting structure rather than reading content.
+**Every example below is invented; what is real is the shape and the numbers.**
+
+**A note kind is a FLAT folder of markdown files. A nested tree is an artifact store, not a
+node collection.** The split is clean and it is the rule that decides where something belongs:
+
+| | shape | holds |
+|---|---|---|
+| **node collection** | flat, dozens-to-hundreds of `.md`, **no subdirectories** | `characters/`, `discussions/`, `tags/`, `indexes/`, `guides/` |
+| **artifact store** | nested subdirectories, few or no `.md` at the top | a manuscript tree, a publication output tree, an assets tree |
+
+⇒ This is why the manifest's collection model works unchanged on a vault: **a collection is a
+flat folder of nodes**, and the nested trees are not collections at all. A vault that mixes them
+in one directory has a folder that is two things.
+
+**The largest node kinds are the ones used for organising, not the ones being organised.** In the
+measured vault the tag folder and the character folder are each larger than the discussion
+folder. **The vocabulary outweighs the material**, which is what "a tag is a note" produces in
+practice and is the strongest evidence the rule is load-bearing rather than decorative.
+
+**Sub-collections are peers, not a hierarchy.** The vault is several sibling collections — a
+primary writing collection, a bulk/working collection, and a generated collection — each with
+its own `indexes/` and `templates/`. **An index is per-collection**, not global. This is the
+`debian packages` framing that produced the flatten call, and it survives it: separation by
+folder, no wall.
+
+### ✅ Link syntax — measured, and it settles a design question
+
+Counted across the primary collection. Only the shapes are reported; no targets were read.
+
+| shape | share | reading |
+|---|---|---|
+| **bare `[[name]]`** | **~98%** | the overwhelming default |
+| pathed `[[folder/name]]` | ~1.8% | rare, and a workaround where it appears |
+| aliased `[[name\|label]]` | ~0.3% | almost never |
+| heading `[[name#heading]]` | **0** | never used, not once |
+| embed `![[name]]` | 3 total | effectively unused |
+| `#hashtag` | ~6% of link volume | present, but the link is the primary gesture |
+
+⇒ **A LINK IS A BARE NAME, and the system resolves it.** This is not a preference to be argued
+about — 98% of a working vault's links carry no path at all, which is the flatten call arriving
+as data. **A resolver that cannot find a target by bare name across the whole collection is
+useless here; one that lacks aliases and heading-links loses under half a percent.** That is a
+priority ordering for renderer work derived from use rather than from taste.
+
+⚠ **The embed count is 3, and it admits two readings.** Cross-collection artifact embedding was
+the origin story of the flatten decision — a note could not embed evidence stored under a
+sibling container. Three embeds is consistent with *the containment made it impractical* and
+equally consistent with *nobody wanted it*. **The number does not distinguish them**, and it
+should not be quoted as if it did.
+
+**Frontmatter is near-universal** — present on ~98% of notes. So `frontmatter:<key>` is the
+normal place a vault-shaped corpus keeps a title, a date or a status, not an edge case.
+
+Still to be written:
 - **Tag-as-note mechanics** — how a grouping file is created, what it holds, and what happens
   when it is referenced before it exists.
 - **Identity and disambiguation** — ⚠ if characters are notes, two real people with the same
