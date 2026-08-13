@@ -2,8 +2,21 @@
 
 ## ⛔⛔ PRIVACY — this repo describes a private journal, and it is destined to be PUBLIC
 
-**Run `scripts/check-privacy.sh` before every commit.** It scans tracked *and* untracked files,
-because the moment this guard exists to cover is the moment just before `git add`.
+**Run `scripts/install-hooks.sh` once per clone**, then `scripts/check-privacy.sh` before every
+commit. It scans tracked *and* untracked files, because the moment this guard exists to cover is
+the moment just before `git add`.
+
+⛔ **The hook is not optional and it does not travel.** Git hooks live in `.git/`, so a fresh
+clone has no guard at all until the installer is run — and the guard was hand-run only until
+2026-08-13, which works exactly as long as whoever is working remembers it. **An agent's
+discipline resets every session; a hook's does not.**
+
+⚠ **Prove an installed hook with a REAL PUSH, both directions.** A hook that is present,
+executable and syntactically valid is indistinguishable on disk from one that works, and a broken
+one can print the guard's own output while exiting non-zero — which git reads as *refuse* and
+which looks exactly like the guard doing its job. A planted leak must be refused **and** a clean
+push must succeed: a hook that refuses everything passes the first test, and one that does
+nothing passes the second.
 
 ztlkasten is a set of rules extracted from a working vault. **That vault is the owner's personal
 journal.** It holds notes about real people, family, health, money, legal matters and private
