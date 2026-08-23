@@ -51,6 +51,12 @@ fn main() {
 }
 
 fn run() -> Result<()> {
+    // Registration is part of running the app, not of opening a surface.  In
+    // particular, installers and fleet convergence probes commonly invoke
+    // `--help`; that first harmless run must be enough to make Kasten appear in
+    // yggterm's launcher and cwd-tree context menus.
+    launcher::write_best_effort();
+
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut positional: Vec<String> = Vec::new();
     let mut corpus_arg: Option<PathBuf> = None;
@@ -209,8 +215,6 @@ fn serve(corpus: Corpus, manifest_path: PathBuf) -> Result<()> {
              Run this inside a yggterm terminal to see it."
         );
     }
-    launcher::write_best_effort();
-
     // Retire the declaration on the way out. An unswept contribution does
     // expire on its own, so this is not correctness — it is the difference
     // between a surface that closes when the reader closes it and one that
