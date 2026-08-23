@@ -412,6 +412,8 @@ fn extract_links(prose: &str) -> Vec<String> {
         rest = &rest[open + 2..];
         let Some(close) = rest.find("]]") else { break };
         let target = rest[..close].split('|').next().unwrap_or("").trim();
+        let target = target.split('#').next().unwrap_or(target);
+        let target = target.rsplit('/').next().unwrap_or(target).trim();
         if !target.is_empty() && !links.iter().any(|l| l == target) {
             links.push(target.to_string());
         }
@@ -538,6 +540,14 @@ mod tests {
 
         let c = fixture("fieldbook");
         assert!(c.unresolved().is_empty(), "{:?}", c.unresolved());
+    }
+
+    #[test]
+    fn obsidian_paths_and_headings_resolve_by_the_note_name() {
+        assert_eq!(
+            extract_links("[[topics/river|the river]] [[river#Sources]]"),
+            vec!["river"]
+        );
     }
 
     #[test]

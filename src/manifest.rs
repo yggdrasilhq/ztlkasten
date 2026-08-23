@@ -76,6 +76,9 @@ pub enum Order {
 pub struct Collection {
     pub id: String,
     pub label: String,
+    /// A host-configured vault group. Corpus manifests leave this absent.
+    pub vault: Option<String>,
+    pub vault_id: Option<String>,
     pub path: PathBuf,
     pub shape: NodeShape,
     /// For a DIRECTORY node, the file inside it that holds the facts.
@@ -168,8 +171,7 @@ impl Manifest {
             .parent()
             .map(Path::to_path_buf)
             .unwrap_or_else(|| PathBuf::from("."));
-        Self::parse(&text, &dir)
-            .with_context(|| format!("in {}", manifest_path.display()))
+        Self::parse(&text, &dir).with_context(|| format!("in {}", manifest_path.display()))
     }
 
     pub fn parse(text: &str, dir: &Path) -> Result<Self> {
@@ -191,7 +193,9 @@ impl Manifest {
                 bail!("a collection has an empty id");
             }
             if collections.iter().any(|k: &Collection| k.id == id) {
-                bail!("duplicate collection id {id:?} — ids address a collection and must be unique");
+                bail!(
+                    "duplicate collection id {id:?} — ids address a collection and must be unique"
+                );
             }
 
             let shape = match c.node.as_str() {
@@ -249,6 +253,8 @@ impl Manifest {
             collections.push(Collection {
                 entry,
                 label: c.label.unwrap_or_else(|| id.clone()),
+                vault: None,
+                vault_id: None,
                 path: root.join(c.path.unwrap_or_else(|| id.clone())),
                 id,
                 shape,

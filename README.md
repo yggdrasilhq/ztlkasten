@@ -49,7 +49,23 @@ cargo build --release
 ./target/release/kasten serve            # inside a yggterm terminal, opens the surface
 ```
 
-**One binary, many corpora.** Everything that differs between one corpus and another lives in a
+On its first normal launch, Kasten guides you through choosing one or more
+master folders. The host-local list is stored at
+`~/.yggterm/kasten/config.toml`; Kasten then discovers each child directory
+that is an Obsidian vault. You can also configure it non-interactively:
+
+```sh
+kasten init --master ~/notes --master /mnt/archive/notebooks
+```
+
+The vaults themselves are read as-is. Kasten does not add a manifest, rewrite
+frontmatter, or alter Obsidian's files, so both applications can be used during
+the transition. The sidebar groups collections by vault and provides a vault
+switcher. Wiki links resolve over every configured vault; when the same bare
+name exists more than once, all qualified matches are shown instead of choosing
+one silently.
+
+**One binary, many corpora.** Explicit structured corpora continue to declare what differs in a
 [`kasten.toml`](docs/spec-manifest.md) at its root — the collections, what a node is made of,
 where a title and a date are read from. The program never learns any corpus's vocabulary, which
 is what lets it be public while the corpora it reads stay private.

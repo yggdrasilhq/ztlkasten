@@ -16,6 +16,7 @@ mod manifest;
 mod osc;
 mod schema;
 mod server;
+mod workspace;
 
 use anyhow::{bail, Context, Result};
 use corpus::Corpus;
@@ -29,6 +30,7 @@ kasten — a corpus overview
 USAGE:
     kasten capture <text…> [--corpus <dir>]
     kasten init  [--corpus <dir>]
+                 [--master <dir>]…
     kasten serve [--corpus <dir>]
     kasten index [--corpus <dir>]
     kasten check [--corpus <dir>]
@@ -39,8 +41,8 @@ ROUTES:
     collection:<id>         one collection
     node:<collection>/<slug>  one node
 
-The corpus is the first of: --corpus, $KASTEN_CORPUS, or the nearest ancestor
-directory of the working directory that holds a kasten.toml.
+Without --corpus, Kasten opens every Obsidian vault below the master folders in
+~/.yggterm/kasten/config.toml. The first run starts guided setup in the terminal.
 ";
 
 fn main() {
@@ -60,6 +62,7 @@ fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut positional: Vec<String> = Vec::new();
     let mut corpus_arg: Option<PathBuf> = None;
+    let mut masters: Vec<PathBuf> = Vec::new();
     let mut route = "home".to_string();
     let mut search = String::new();
 
@@ -69,6 +72,7 @@ fn run() -> Result<()> {
             "--corpus" => {
                 corpus_arg = Some(PathBuf::from(next(&args, &mut i, "--corpus")?));
             }
+            "--master" => masters.push(PathBuf::from(next(&args, &mut i, "--master")?)),
             "--route" => route = next(&args, &mut i, "--route")?,
             "--search" => search = next(&args, &mut i, "--search")?,
             "-h" | "--help" | "help" => {
@@ -86,20 +90,21 @@ fn run() -> Result<()> {
         return Ok(());
     };
 
-    // `init` runs before the manifest is located, because its whole job is the
-    // case where there is not one yet. It writes nothing: the proposal goes to
-    // stdout so a human reads it before it becomes the corpus's contract.
+    // `init` runs before a source is located: workspace setup writes only the
+    // host-local config, while explicit --corpus mode retains the old
+    // read-only manifest proposal.
     if command == "init" {
-        let root = match corpus_arg {
-            Some(dir) => dir,
-            None => std::env::current_dir()?,
-        };
-        print!("{}", init::propose(&root)?);
+        if let Some(root) = corpus_arg {
+            print!("{}", init::propose(&root)?);
+        } else if masters.is_empty() {
+            workspace::guided()?;
+        } else {
+            workspace::configure(masters)?;
+        }
         return Ok(());
     }
 
-    let manifest_path = locate(corpus_arg.as_deref())?;
-    let corpus = Corpus::load(Manifest::load(&manifest_path)?)?;
+    let (corpus, source) = load(corpus_arg.as_deref(), command == "serve")?;
 
     match command.as_str() {
         "capture" => {
@@ -116,9 +121,9 @@ fn run() -> Result<()> {
             }
             capture_now(&corpus.manifest, &text)
         }
-        "serve" => serve(corpus, manifest_path),
+        "serve" => serve(corpus, source),
         "index" => print_index(&corpus),
-        "check" => print_check(&corpus, &manifest_path),
+        "check" => print_check(&corpus, source.manifest_path()),
         "pane" => {
             let pane = positional.get(1).map(String::as_str).unwrap_or("doc");
             let route = Route::parse(&route);
@@ -181,7 +186,10 @@ fn locate(explicit: Option<&Path>) -> Result<PathBuf> {
     if let Some(env) = std::env::var_os("KASTEN_CORPUS") {
         let path = Path::new(&env).join("kasten.toml");
         if !path.is_file() {
-            bail!("KASTEN_CORPUS is set but has no kasten.toml: {}", path.display());
+            bail!(
+                "KASTEN_CORPUS is set but has no kasten.toml: {}",
+                path.display()
+            );
         }
         return Ok(path);
     }
@@ -193,9 +201,48 @@ fn locate(explicit: Option<&Path>) -> Result<PathBuf> {
             return Ok(candidate);
         }
         if !dir.pop() {
-            bail!("no kasten.toml here or in any parent — name one with --corpus or $KASTEN_CORPUS");
+            bail!(
+                "no kasten.toml here or in any parent — name one with --corpus or $KASTEN_CORPUS"
+            );
         }
     }
+}
+
+#[derive(Clone)]
+enum LoadSource {
+    Manifest(PathBuf),
+    Workspace,
+}
+
+impl LoadSource {
+    fn reload(&self) -> Result<Corpus> {
+        match self {
+            Self::Manifest(path) => Corpus::load(Manifest::load(path)?),
+            Self::Workspace => Corpus::load(workspace::manifest(&workspace::load()?)?),
+        }
+    }
+    fn manifest_path(&self) -> Option<&Path> {
+        match self {
+            Self::Manifest(path) => Some(path),
+            Self::Workspace => None,
+        }
+    }
+}
+
+fn load(explicit: Option<&Path>, guide: bool) -> Result<(Corpus, LoadSource)> {
+    if explicit.is_some() || std::env::var_os("KASTEN_CORPUS").is_some() {
+        let source = LoadSource::Manifest(locate(explicit)?);
+        return Ok((source.reload()?, source));
+    }
+    if !workspace::exists() && guide {
+        workspace::guided()?;
+    }
+    if workspace::exists() {
+        let source = LoadSource::Workspace;
+        return Ok((source.reload()?, source));
+    }
+    let source = LoadSource::Manifest(locate(None)?);
+    Ok((source.reload()?, source))
 }
 
 /// Hold the surface open: declare the panes, then re-declare on the heartbeat
@@ -204,7 +251,7 @@ fn locate(explicit: Option<&Path>) -> Result<PathBuf> {
 /// ⛔ The control URL is resolved ONCE, before the loop. Re-resolving it per
 /// heartbeat is how an app spawns a forwarding tunnel every few seconds — a
 /// leak that looks like nothing at all until the machine runs out of sockets.
-fn serve(corpus: Corpus, manifest_path: PathBuf) -> Result<()> {
+fn serve(corpus: Corpus, source: LoadSource) -> Result<()> {
     let session = std::env::var("YGGTERM_SESSION_ID").unwrap_or_default();
     if session.is_empty() {
         // Not fatal: the schemas are still served and still fetchable, which is
@@ -229,7 +276,7 @@ fn serve(corpus: Corpus, manifest_path: PathBuf) -> Result<()> {
 
     let name = corpus.manifest.name.clone();
     let server = server::spawn(server::State {
-        manifest_path,
+        loader: Box::new(move || source.reload()),
         corpus,
         route: Route::Home,
         search: String::new(),
@@ -273,8 +320,11 @@ fn print_index(corpus: &Corpus) -> Result<()> {
 /// whose directory is not there, and a link with nothing behind it. Both are
 /// reported, neither is fatal — a corpus is allowed to be mid-growth, and a
 /// checker that refuses a working corpus gets switched off.
-fn print_check(corpus: &Corpus, manifest_path: &Path) -> Result<()> {
-    println!("manifest: {}", manifest_path.display());
+fn print_check(corpus: &Corpus, manifest_path: Option<&Path>) -> Result<()> {
+    match manifest_path {
+        Some(path) => println!("manifest: {}", path.display()),
+        None => println!("workspace: {}", workspace::path()?.display()),
+    }
     // The root is printed because the commonest way to be confused by this
     // program is to be looking at a corpus other than the one you meant.
     println!("root:     {}", corpus.manifest.root.display());
@@ -296,8 +346,16 @@ fn print_check(corpus: &Corpus, manifest_path: &Path) -> Result<()> {
         corpus.nodes.len(),
         if corpus.nodes.len() == 1 { "" } else { "s" },
         corpus.manifest.collections.len(),
-        if corpus.manifest.collections.len() == 1 { "" } else { "s" },
-        if notes == 0 { " — nothing to report" } else { "" },
+        if corpus.manifest.collections.len() == 1 {
+            ""
+        } else {
+            "s"
+        },
+        if notes == 0 {
+            " — nothing to report"
+        } else {
+            ""
+        },
     );
     Ok(())
 }

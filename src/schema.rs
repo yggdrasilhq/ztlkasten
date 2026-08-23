@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
     Home,
+    Vault(String),
     Collection(String),
     Node(String),
 }
@@ -26,6 +27,7 @@ impl Route {
     pub fn parse(raw: &str) -> Route {
         match raw.split_once(':') {
             Some(("collection", id)) => Route::Collection(id.to_string()),
+            Some(("vault", id)) => Route::Vault(id.to_string()),
             Some(("node", address)) => Route::Node(address.to_string()),
             _ => Route::Home,
         }
@@ -34,6 +36,7 @@ impl Route {
     pub fn as_string(&self) -> String {
         match self {
             Route::Home => "home".to_string(),
+            Route::Vault(id) => format!("vault:{id}"),
             Route::Collection(id) => format!("collection:{id}"),
             Route::Node(address) => format!("node:{address}"),
         }
@@ -44,6 +47,7 @@ impl Route {
 pub fn document(corpus: &Corpus, route: &Route, search: &str) -> Value {
     let widgets = match route {
         Route::Home => home(corpus),
+        Route::Vault(id) => vault(corpus, id),
         Route::Collection(id) => collection(corpus, id, search),
         Route::Node(address) => node(corpus, address),
     };
@@ -54,10 +58,40 @@ pub fn document(corpus: &Corpus, route: &Route, search: &str) -> Value {
     })
 }
 
+fn vault(corpus: &Corpus, id: &str) -> Vec<Value> {
+    let selected: Vec<_> = corpus
+        .manifest
+        .collections
+        .iter()
+        .filter(|c| c.vault_id.as_deref() == Some(id))
+        .collect();
+    let Some(first) = selected.first() else {
+        return vec![
+            json!({ "kind": "label", "muted": true, "text": format!("No vault {id:?}.") }),
+        ];
+    };
+    let mut widgets =
+        vec![json!({ "kind": "section", "text": first.vault.as_deref().unwrap_or(id) })];
+    for c in selected {
+        widgets.push(json!({
+            "kind": "list-row", "id": format!("collection-{}", c.id),
+            "title": c.label, "subtitle": format!("{} nodes", corpus.count(&c.id)),
+            "actions": [{ "action": format!("open:collection:{}", c.id), "label": "⤢", "title": "Open this collection" }],
+        }));
+    }
+    widgets
+}
+
 fn home(corpus: &Corpus) -> Vec<Value> {
-    let mut widgets = vec![json!({ "kind": "section", "text": "Collections" })];
+    let mut widgets = Vec::new();
+    let mut current_vault: Option<&str> = None;
 
     for c in &corpus.manifest.collections {
+        let vault = c.vault.as_deref();
+        if vault != current_vault {
+            widgets.push(json!({ "kind": "section", "text": vault.unwrap_or("Collections") }));
+            current_vault = vault;
+        }
         let count = corpus.count(&c.id);
         let mut subtitle = format!("{count} {}", if count == 1 { "node" } else { "nodes" });
         // A collection that may never be published says so on its own row. The
@@ -197,7 +231,7 @@ fn node(corpus: &Corpus, address: &str) -> Vec<Value> {
     let outbound: Vec<&Node> = n
         .links
         .iter()
-        .filter_map(|slug| corpus.nodes.iter().find(|c| &c.slug == slug))
+        .flat_map(|slug| corpus.nodes.iter().filter(move |c| &c.slug == slug))
         .collect();
     if !outbound.is_empty() {
         widgets.push(json!({ "kind": "section", "text": "Links to" }));
@@ -216,7 +250,10 @@ fn node_row(corpus: &Corpus, n: &Node, qualify: bool) -> Value {
         let label = corpus
             .manifest
             .collection(&n.collection)
-            .map(|c| c.label.clone())
+            .map(|c| match &c.vault {
+                Some(vault) => format!("{vault} / {}", c.label),
+                None => c.label.clone(),
+            })
             .unwrap_or_else(|| n.collection.clone());
         parts.push(label);
     }
@@ -306,9 +343,54 @@ pub fn navigation(
         "kind": "button", "id": "overview", "label": "Overview",
         "action": "open:home", "primary": matches!(route, Route::Home),
     }));
-    widgets.push(json!({ "kind": "section", "text": "Collections" }));
-
+    let mut vaults = Vec::new();
     for c in &corpus.manifest.collections {
+        if let (Some(id), Some(label)) = (c.vault_id.as_deref(), c.vault.as_deref()) {
+            if !vaults.iter().any(|(seen, _)| *seen == id) {
+                vaults.push((id, label));
+            }
+        }
+    }
+    if !vaults.is_empty() {
+        widgets.push(json!({ "kind": "section", "text": "Vaults" }));
+        for (id, label) in vaults {
+            let selected = matches!(route, Route::Vault(current) if current == id);
+            let count: usize = corpus
+                .manifest
+                .collections
+                .iter()
+                .filter(|c| c.vault_id.as_deref() == Some(id))
+                .map(|c| corpus.count(&c.id))
+                .sum();
+            widgets.push(json!({
+                "kind": "list-row", "id": format!("vault-{id}"), "title": label,
+                "subtitle": format!("{count} notes"), "selected": selected,
+                "actions": [{ "action": format!("open:vault:{id}"), "label": "⤢", "title": "Open this vault" }],
+            }));
+        }
+    }
+    let active_vault = match route {
+        Route::Vault(id) => Some(id.as_str()),
+        Route::Collection(id) => corpus
+            .manifest
+            .collection(id)
+            .and_then(|c| c.vault_id.as_deref()),
+        Route::Node(address) => address
+            .split_once('/')
+            .and_then(|(id, _)| corpus.manifest.collection(id))
+            .and_then(|c| c.vault_id.as_deref()),
+        Route::Home => None,
+    };
+    let mut current_vault: Option<&str> = None;
+
+    for c in corpus.manifest.collections.iter().filter(|c| {
+        c.vault_id.is_none() || active_vault.is_some_and(|id| c.vault_id.as_deref() == Some(id))
+    }) {
+        let vault = c.vault.as_deref();
+        if vault != current_vault {
+            widgets.push(json!({ "kind": "section", "text": vault.unwrap_or("Collections") }));
+            current_vault = vault;
+        }
         let selected = matches!(route, Route::Collection(id) if id == &c.id);
         widgets.push(json!({
             "kind": "list-row",
@@ -353,8 +435,18 @@ mod tests {
         let a = fixture("fieldbook");
         let b = fixture("atlas");
 
-        let a_ids: Vec<&str> = a.manifest.collections.iter().map(|c| c.id.as_str()).collect();
-        let b_ids: Vec<&str> = b.manifest.collections.iter().map(|c| c.id.as_str()).collect();
+        let a_ids: Vec<&str> = a
+            .manifest
+            .collections
+            .iter()
+            .map(|c| c.id.as_str())
+            .collect();
+        let b_ids: Vec<&str> = b
+            .manifest
+            .collections
+            .iter()
+            .map(|c| c.id.as_str())
+            .collect();
         assert!(
             a_ids.iter().all(|id| !b_ids.contains(id)),
             "the fixtures must share no collection id, or this proves nothing: {a_ids:?} vs {b_ids:?}"
@@ -364,7 +456,10 @@ mod tests {
             let home = document(corpus, &Route::Home, "");
             assert_eq!(home["title"], corpus.manifest.name);
             let rows = home["widgets"].as_array().unwrap().len();
-            assert!(rows > corpus.manifest.collections.len(), "home rendered nothing");
+            assert!(
+                rows > corpus.manifest.collections.len(),
+                "home rendered nothing"
+            );
         }
     }
 
@@ -379,7 +474,10 @@ mod tests {
             .find(|w| w["id"] == "collection-expeditions")
             .expect("expeditions row");
         assert!(
-            row["subtitle"].as_str().unwrap().contains("never published"),
+            row["subtitle"]
+                .as_str()
+                .unwrap()
+                .contains("never published"),
             "{row}"
         );
     }
@@ -416,7 +514,11 @@ mod tests {
     fn a_search_that_matches_nothing_says_so_rather_than_rendering_an_empty_list() {
         // Negative control for the test above: prove the search can miss.
         let field = fixture("fieldbook");
-        let schema = document(&field, &Route::Collection("journal".into()), "zzzz-no-such-word");
+        let schema = document(
+            &field,
+            &Route::Collection("journal".into()),
+            "zzzz-no-such-word",
+        );
         let rows = schema["widgets"]
             .as_array()
             .unwrap()
@@ -461,6 +563,7 @@ mod tests {
     fn a_route_round_trips_through_its_string_form() {
         for route in [
             Route::Home,
+            Route::Vault("example".into()),
             Route::Collection("journal".into()),
             Route::Node("journal/2031-03-04-first-thaw".into()),
         ] {
@@ -481,7 +584,10 @@ mod tests {
         let nav = navigation(&field, &Route::Home, Some(&failed));
         let rows = nav["widgets"].as_array().unwrap();
 
-        let box_widget = rows.iter().find(|w| w["id"] == "capture").expect("capture box");
+        let box_widget = rows
+            .iter()
+            .find(|w| w["id"] == "capture")
+            .expect("capture box");
         assert_eq!(box_widget["value"], "the thought that did not make it");
         assert!(
             rows.iter().any(|w| w["kind"] == "label"
@@ -494,7 +600,10 @@ mod tests {
         // warning, or the assertions above would pass on every render.
         let clean = navigation(&field, &Route::Home, None);
         let rows = clean["widgets"].as_array().unwrap();
-        assert_eq!(rows.iter().find(|w| w["id"] == "capture").unwrap()["value"], "");
+        assert_eq!(
+            rows.iter().find(|w| w["id"] == "capture").unwrap()["value"],
+            ""
+        );
         assert!(!clean.to_string().contains("not captured"));
     }
 

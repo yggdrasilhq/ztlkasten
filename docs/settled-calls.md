@@ -70,8 +70,8 @@ publication path, and that separation has to be *declared and enforceable* rathe
 accident of which directory a file happens to sit in.
 
 **Reframe worth keeping:** this is a **resolution-scope** problem, not a rendering one. The
-decision is what a reference resolves *against* — note-relative, collection-relative, or a
-declared set of roots — and only then how it renders.
+implemented scope is the host-local declared set of master roots; all discovered vaults below
+them resolve together, while duplicate bare names remain explicit rather than guessed.
 
 ---
 

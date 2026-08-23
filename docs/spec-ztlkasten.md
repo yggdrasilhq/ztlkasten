@@ -161,9 +161,21 @@ The failure this fixes: reference resolution anchored at a container root means 
 embed an artifact stored under a sibling container, which forces the writer to choose between
 keeping notes beside their evidence and keeping them in the graph.
 
-⇒ **A reference resolves regardless of which sub-collection the target lives under.** The open
-design question is *what* it resolves against — note-relative, collection-relative, or a declared
-set of roots — and that decision precedes any rendering work.
+⇒ **A reference resolves regardless of which sub-collection the target lives under.** It resolves
+against the host's declared set of roots; the workspace contract below defines that scope.
+
+### ✅ Workspace resolution — implemented 2026-08-23
+
+The declared set of roots is host-local: Kasten stores any number of master
+folders under `~/.yggterm`, discovers unmodified Obsidian vaults below them,
+and reads those vaults as one resolution scope. The vault files are never
+rewritten, so the old and new applications can coexist during migration.
+
+The sidebar exposes the discovered vaults as rapid switches. A bare link is
+resolved across every configured vault; a path or heading suffix is normalized
+to its note name. Duplicate names produce multiple qualified destinations and
+are never resolved by an arbitrary first match. The detailed configuration and
+discovery contract is in [`spec-workspace.md`](spec-workspace.md).
 
 **Constraint:** some sub-collections must never enter a publication path. That must be a declared
 and enforceable property, not an accident of directory layout. ⛏ Mechanism unwritten.

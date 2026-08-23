@@ -11,18 +11,16 @@
 //! it is not a private channel.
 
 use crate::corpus::Corpus;
-use crate::manifest::Manifest;
 use crate::schema::{self, Route};
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 /// Everything the surface is showing, and nothing about how it looks.
 pub struct State {
-    pub manifest_path: PathBuf,
+    pub loader: Box<dyn Fn() -> Result<Corpus> + Send>,
     pub corpus: Corpus,
     pub route: Route,
     pub search: String,
@@ -60,10 +58,7 @@ impl State {
     /// gesture, which is nothing at fixture scale and is the first thing to
     /// measure — not guess at — if a real corpus ever feels slow.
     pub fn reload(&mut self) {
-        let Ok(manifest) = Manifest::load(&self.manifest_path) else {
-            return;
-        };
-        if let Ok(corpus) = Corpus::load(manifest) {
+        if let Ok(corpus) = (self.loader)() {
             self.corpus = corpus;
         }
     }
@@ -131,7 +126,11 @@ fn handle(stream: TcpStream, state: &Mutex<State>) {
     match (method.as_str(), path.as_str()) {
         ("GET", "/pane/doc") => {
             let s = state.lock().unwrap();
-            respond(stream, 200, &schema::document(&s.corpus, &s.route, &s.search));
+            respond(
+                stream,
+                200,
+                &schema::document(&s.corpus, &s.route, &s.search),
+            );
         }
         ("GET", "/pane/nav") => {
             let s = state.lock().unwrap();
@@ -145,7 +144,11 @@ fn handle(stream: TcpStream, state: &Mutex<State>) {
             let mut s = state.lock().unwrap();
             apply(&mut s, &body);
             let version = s.document_version();
-            respond(stream, 200, &json!({ "ok": true, "document_version": version }));
+            respond(
+                stream,
+                200,
+                &json!({ "ok": true, "document_version": version }),
+            );
         }
         _ => respond(stream, 404, &json!({ "ok": false })),
     }
@@ -235,6 +238,8 @@ fn respond(mut stream: TcpStream, status: u16, value: &Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::manifest::Manifest;
+    use std::path::PathBuf;
 
     fn state(name: &str) -> State {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -243,7 +248,9 @@ mod tests {
         let manifest_path = root.join("kasten.toml");
         let corpus = Corpus::load(Manifest::load(&manifest_path).unwrap()).unwrap();
         State {
-            manifest_path,
+            loader: Box::new(move || {
+                Corpus::load(crate::manifest::Manifest::load(&manifest_path)?)
+            }),
             corpus,
             route: Route::Home,
             search: String::new(),
@@ -256,10 +263,7 @@ mod tests {
         let mut s = state("fieldbook");
         apply(&mut s, &json!({ "action": "open:collection:indices" }));
         assert_eq!(s.route, Route::Collection("indices".into()));
-        apply(
-            &mut s,
-            &json!({ "action": "open:node:indices/amphibians" }),
-        );
+        apply(&mut s, &json!({ "action": "open:node:indices/amphibians" }));
         assert_eq!(s.route, Route::Node("indices/amphibians".into()));
     }
 
