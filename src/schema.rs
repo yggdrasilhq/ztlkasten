@@ -123,12 +123,19 @@ fn home(corpus: &Corpus) -> Vec<Value> {
     let wanted = corpus.unresolved();
     if !wanted.is_empty() {
         widgets.push(json!({ "kind": "section", "text": "Wanted" }));
-        for slug in wanted {
+        let total = wanted.len();
+        for slug in wanted.into_iter().take(50) {
             widgets.push(json!({
                 "kind": "list-row",
                 "id": format!("wanted-{slug}"),
                 "title": slug,
                 "subtitle": "linked to, not yet written",
+            }));
+        }
+        if total > 50 {
+            widgets.push(json!({
+                "kind": "label", "muted": true,
+                "text": format!("{} more unresolved links; use `kasten check` for the full list.", total - 50),
             }));
         }
     }
