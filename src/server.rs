@@ -124,6 +124,17 @@ fn handle(stream: TcpStream, state: &Mutex<State>) {
     };
 
     match (method.as_str(), path.as_str()) {
+        ("GET", "/ping") => {
+            let s = state.lock().unwrap();
+            respond(
+                stream,
+                200,
+                &json!({
+                    "app_name": "Kasten",
+                    "document_version": s.document_version(),
+                }),
+            );
+        }
         ("GET", "/pane/doc") => {
             let s = state.lock().unwrap();
             respond(
