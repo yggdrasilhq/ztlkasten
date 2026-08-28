@@ -12,6 +12,23 @@ It is built for **journalling and long-form writing first**. Knowledge-base work
 calendars and agent-driven workflows are things the same vault can carry, not the reason it
 exists.
 
+## Install
+
+**ynpm** — ships with yggterm. One manager keeps every yggdrasilhq binary current across
+the whole fleet: generations with rollback, drift-watching, one command.
+
+```sh
+ynpm install @ygghq/kasten
+```
+
+**No npm, no yggterm?** One curl, straight from the registry:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/yggdrasilhq/ztlkasten/main/install.sh | sh
+```
+
+Prebuilt for linux (x64, arm64), macOS (x64, arm64), windows (x64, arm64).
+
 ## What it is not
 
 It is not a Notion clone, and it deliberately does not rebuild the two thirds of Notion that
