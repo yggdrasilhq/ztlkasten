@@ -1,0 +1,32 @@
+{
+  "name": "@ygghq/kasten",
+  "version": "0.1.0",
+  "description": "kasten - the yggdrasilhq build, delivered by ynpm",
+  "bin": {
+    "kasten": "bin/kasten"
+  },
+  "files": [
+    "bin/",
+    "finalize.mjs"
+  ],
+  "optionalDependencies": {
+    "@ygghq/kasten-linux-x64": "0.1.0",
+    "@ygghq/kasten-linux-arm64": "0.1.0",
+    "@ygghq/kasten-darwin-x64": "0.1.0",
+    "@ygghq/kasten-darwin-arm64": "0.1.0",
+    "@ygghq/kasten-win32-x64": "0.1.0",
+    "@ygghq/kasten-win32-arm64": "0.1.0"
+  },
+  "scripts": {
+    "postinstall": "node ./finalize.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yggdrasilhq/kasten.git"
+  },
+  "license": "GPL-3.0-or-later",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
