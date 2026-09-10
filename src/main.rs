@@ -11,7 +11,6 @@
 mod capture;
 mod corpus;
 mod init;
-mod launcher;
 mod manifest;
 mod osc;
 mod schema;
@@ -53,12 +52,6 @@ fn main() {
 }
 
 fn run() -> Result<()> {
-    // Registration is part of running the app, not of opening a surface.  In
-    // particular, installers and fleet convergence probes commonly invoke
-    // `--help`; that first harmless run must be enough to make Kasten appear in
-    // yggterm's launcher and cwd-tree context menus.
-    launcher::write_best_effort();
-
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut positional: Vec<String> = Vec::new();
     let mut corpus_arg: Option<PathBuf> = None;

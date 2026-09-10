@@ -54,7 +54,8 @@ jobs:
           esac
           mkdir -p "pack/@ygghq/kasten-$TARGET/bin"
           cp "$BUILT/$EXE" "pack/@ygghq/kasten-$TARGET/bin/kasten"
-          printf '{"name":"@ygghq/kasten-%s","version":"0.1.0","bin":{"kasten":"bin/kasten"},"os":["$PKG_OS"],"cpu":["$PKG_CPU"],"license":"GPL-3.0-or-later","repository":{"type":"git","url":"git+https://github.com/yggdrasilhq/kasten.git"}}\n' "$TARGET" > "pack/@ygghq/kasten-$TARGET/package.json"
+          VER=$(node -p "require('./package.json').version")
+          printf '{"name":"@ygghq/kasten-%s","version":"%s","bin":{"kasten":"bin/kasten"},"os":["%s"],"cpu":["%s"],"license":"GPL-3.0-or-later","repository":{"type":"git","url":"git+https://github.com/yggdrasilhq/kasten.git"}}\n' "$TARGET" "$VER" "$PKG_OS" "$PKG_CPU" > "pack/@ygghq/kasten-$TARGET/package.json"
       - name: Publish platform package
         shell: bash
         env:
