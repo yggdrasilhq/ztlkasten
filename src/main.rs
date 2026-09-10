@@ -53,6 +53,10 @@ fn main() {
 
 fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if matches!(args.as_slice(), [flag] if flag == "--version" || flag == "-V") {
+        println!("kasten {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
     let mut positional: Vec<String> = Vec::new();
     let mut corpus_arg: Option<PathBuf> = None;
     let mut masters: Vec<PathBuf> = Vec::new();
