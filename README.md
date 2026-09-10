@@ -27,12 +27,13 @@ exists.
 
 ## Install
 
-**ynpm** — ships with yggterm. One manager keeps every yggdrasilhq binary current across
-the whole fleet: generations with rollback, drift-watching, one command.
-
 ```sh
-ynpm install @ygghq/kasten
+curl -fsSL https://raw.githubusercontent.com/yggdrasilhq/yggterm/main/scripts/install.sh | sh
+ynpx @ygghq/kasten
 ```
+
+`ynpx` keeps the verified generation on this host and can distribute it with
+ynpm across the yggterm fleet.
 
 **No npm, no yggterm?** One curl, straight from the registry:
 
