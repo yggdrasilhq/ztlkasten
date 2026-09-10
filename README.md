@@ -25,23 +25,16 @@ It is built for **journalling and long-form writing first**. Knowledge-base work
 calendars and agent-driven workflows are things the same vault can carry, not the reason it
 exists.
 
-## Install
+## Archived installation
+
+The `@ygghq/kasten` app package is deprecated and has been removed from the
+yggterm fleet. Do not install it with ynpm or ynpx. Use ymacs for the
+interactive editor surface and msggraph/lobemanager for graph operations.
+Existing fleet installations can be removed with:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/yggdrasilhq/yggterm/main/scripts/install.sh | sh
-ynpx @ygghq/kasten
+ynpm remove @ygghq/kasten
 ```
-
-`ynpx` keeps the verified generation on this host and can distribute it with
-ynpm across the yggterm fleet.
-
-**No npm, no yggterm?** One curl, straight from the registry:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/yggdrasilhq/ztlkasten/main/install.sh | sh
-```
-
-Prebuilt for linux (x64, arm64), macOS (x64, arm64), windows (x64, arm64).
 
 ## What it is not
 
