@@ -50,7 +50,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yggdrasilhq/kasten.git"
+    "url": "git+https://github.com/yggdrasilhq/ztlkasten.git"
   },
   "license": "GPL-3.0-or-later",
   "publishConfig": {
