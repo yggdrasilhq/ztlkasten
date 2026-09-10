@@ -1,6 +1,6 @@
 [package]
 name = "kasten"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A corpus overview for a kasten-shaped collection of notes and records"
 license = "GPL-3.0-or-later"

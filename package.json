@@ -1,6 +1,6 @@
 {
   "name": "@ygghq/kasten",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "kasten - the yggdrasilhq build, delivered by ynpm",
   "bin": {
     "kasten": "bin/kasten"
@@ -38,12 +38,12 @@
     "finalize.mjs"
   ],
   "optionalDependencies": {
-    "@ygghq/kasten-linux-x64": "0.1.1",
-    "@ygghq/kasten-linux-arm64": "0.1.1",
-    "@ygghq/kasten-darwin-x64": "0.1.1",
-    "@ygghq/kasten-darwin-arm64": "0.1.1",
-    "@ygghq/kasten-win32-x64": "0.1.1",
-    "@ygghq/kasten-win32-arm64": "0.1.1"
+    "@ygghq/kasten-linux-x64": "0.1.2",
+    "@ygghq/kasten-linux-arm64": "0.1.2",
+    "@ygghq/kasten-darwin-x64": "0.1.2",
+    "@ygghq/kasten-darwin-arm64": "0.1.2",
+    "@ygghq/kasten-win32-x64": "0.1.2",
+    "@ygghq/kasten-win32-arm64": "0.1.2"
   },
   "scripts": {
     "postinstall": "node ./finalize.mjs"
